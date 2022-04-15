@@ -216,7 +216,7 @@ class GCN(nn.Module):
         self.gc1.reset_parameters()
         self.gc2.reset_parameters()
 
-    def fit(self, features, adj, labels, SC, K, idx_train, idx_val=None, train_iters=200, initialize=False, normalize=True):
+    def fit(self, features, adj, labels, SC, K, idx_train, idx_val=None, train_iters=20, initialize=False, normalize=True):
         if initialize:
             self.initialize()
 
@@ -278,9 +278,9 @@ class GCN(nn.Module):
 
 
 
-    def test(self, idx_test):
+    def test(self, idx_test,SC,K):
         self.eval()
-        output = self.predict()
+        output,x_dec,gamma,errIHT = self.predict(SC,K)
 
         loss_test = F.nll_loss(output[idx_test], self.labels[idx_test])
         acc_test = utils.accuracy(output[idx_test], self.labels[idx_test])
@@ -290,6 +290,6 @@ class GCN(nn.Module):
         return acc_test.item()
 
 
-    def predict(self):
+    def predict(self,SC,K):
         self.eval()
-        return self.forward(self.features, self.adj_norm)
+        return self.forward(self.features, self.adj_norm,SC,K)
