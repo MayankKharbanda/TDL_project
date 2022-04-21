@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import scipy.sparse as sp
-
+import torch_geometric.datasets
 
 def is_sparse_tensor(tensor):
     if tensor.layout == torch.sparse_coo:
@@ -37,3 +37,33 @@ def normalize_adj_tensor(adj, sparse=False):
         mx = mx @ r_mat_inv
     return mx
 
+
+def edge_vector_to_adj_matrix(num_vertices, edge_vector):
+    adj_matrix = np.zeros((num_vertices, num_vertices))
+    for i in range(edge_vector[0].shape[0]):
+        start = edge_vector[0][i]
+        end = edge_vector[1][i]
+        adj_matrix[start, end] = 1
+    return adj_matrix
+
+def get_dataset(dataset_name):
+    if(dataset_name == "KarateClub"):
+        dataset = torch_geometric.datasets.KarateClub().data
+    
+    elif(dataset_name == "CiteSeer"):
+        dataset = torch_geometric.datasets.Planetoid(dataset_name, dataset_name).data
+
+    elif(dataset_name == "Cora"):
+        dataset = torch_geometric.datasets.Planetoid(dataset_name, dataset_name).data
+
+    else:
+        return None
+    
+    edge_vector = dataset.edge_index.numpy()
+
+    adj_matrix = edge_vector_to_adj_matrix(dataset.x.shape[0], edge_vector)
+    adj_matrix = torch.from_numpy(adj_matrix)
+    feature_matrix = dataset.x
+    labels = dataset.y
+
+    return [adj_matrix, feature_matrix, labels]

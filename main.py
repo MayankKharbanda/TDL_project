@@ -2,7 +2,7 @@ import torch
 from gcn import *
 import pickle
 import numpy as np
-
+from utils import get_dataset
 
 def get_train_val_test_gcn(labels, seed=None):
     if seed is not None:
@@ -24,14 +24,15 @@ def get_train_val_test_gcn(labels, seed=None):
     return idx_train, idx_val, idx_test
 
 
+datasetName = "Cora" # "KarateClub", "CiteSeer", "Cora", Essentially any dataset from - https://pytorch-geometric.readthedocs.io/en/latest/modules/datasets.html#
+adj, features, labels = get_dataset(datasetName)
 
-f = open("cora_graph", "rb")
-graph = pickle.load(f)
-adj = torch.from_numpy(graph['adj_matrix']); features = torch.from_numpy(graph['features']); labels = torch.from_numpy(graph['labels'])
-adj = torch.ceil(adj).float(); features = torch.ceil(features).float()
+
+adj = torch.ceil(adj).float()
+features = torch.ceil(features).float()
 
 
 idx_train, idx_val, idx_test = get_train_val_test_gcn(labels, seed = 1)
-surrogate = GCN(nfeat=features.shape[1], nclass=labels.max().item()+1, nhid=16, dropout=0.5, weight_decay=5e-4)
+surrogate = GCN(nnodes = features.shape[0] ,nfeat=features.shape[1], nclass=labels.max().item()+1, nhid=16, dropout=0.5, weight_decay=5e-4)
 surrogate.fit(features, adj, labels, 'fista', 0.7, idx_train, idx_val)
 surrogate.test(idx_test,'fista',0.7)

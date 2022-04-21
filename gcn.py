@@ -186,11 +186,11 @@ class GraphConvolution(Module):
 
 class GCN(nn.Module):
 
-    def __init__(self, nfeat, nhid, nclass, dropout=0.5, lr=0.01, weight_decay=5e-4,
+    def __init__(self, nnodes, nfeat, nhid, nclass, dropout=0.5, lr=0.01, weight_decay=5e-4,
             with_relu=True, with_bias=True):
 
         super(GCN, self).__init__()
-        self.dl1 = DictLearn(2708,int(nfeat/2))
+        self.dl1 = DictLearn(nnodes, int(nfeat/2))
         self.gc1 = GraphConvolution(nfeat, nhid, with_bias=with_bias)
         self.gc2 = GraphConvolution(nhid, nclass, with_bias=with_bias)
         self.dropout = dropout
