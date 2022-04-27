@@ -33,6 +33,9 @@ features = torch.ceil(features).float()
 
 
 idx_train, idx_val, idx_test = get_train_val_test_gcn(labels, seed = 1)
-surrogate = GCN(nnodes = features.shape[0] ,nfeat=features.shape[1], nclass=labels.max().item()+1, nhid=16, dropout=0.5, weight_decay=5e-4)
+surrogate = GCN(nnodes = features.shape[0] ,nfeat=features.shape[1], nclass=labels.max().item()+1, nhid=16, dropout=0.5, weight_decay=5e-4, labels=labels, divide=False)
 surrogate.fit(features, adj, labels, 'fista', 0.7, idx_train, idx_val)
 surrogate.test(idx_test,'fista',0.7)
+
+
+

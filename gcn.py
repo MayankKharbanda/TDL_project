@@ -186,12 +186,24 @@ class GraphConvolution(Module):
 
 class GCN(nn.Module):
 
-    def __init__(self, nnodes, nfeat, nhid, nclass, dropout=0.5, lr=0.01, weight_decay=5e-4,
+    def __init__(self, nnodes, nfeat, nhid, nclass,labels,divide=False, dropout=0.5, lr=0.01, weight_decay=5e-4,
             with_relu=True, with_bias=True):
 
         super(GCN, self).__init__()
-        self.dl1 = DictLearn(nnodes, int(nfeat/2))
-        self.dl2 = DictLearn(nnodes,int((nnodes*3)/4))
+        
+        self.dl_list_adj = nn.ModuleList()
+        self.dl_list_feat = nn.ModuleList()
+        self.nclass = nclass
+        self.labels=labels
+        self.idx=np.arange(len(self.labels))
+        self.divide=divide
+        if self.divide:
+            for i in range(self.nclass):
+                self.dl_list_adj.append(DictLearn(len(self.idx[self.labels==i]),int((nnodes*3)/4)))
+                self.dl_list_feat.append(DictLearn(len(self.idx[self.labels==i]),int(nfeat/2)))
+        else:
+            self.dl1 = DictLearn(nnodes, int(nfeat/2))
+            self.dl2 = DictLearn(nnodes,int((nnodes*3)/4))
         self.gc1 = GraphConvolution(nfeat, nhid, with_bias=with_bias)
         self.gc2 = GraphConvolution(nhid, nclass, with_bias=with_bias)
         self.dropout = dropout
@@ -203,8 +215,15 @@ class GCN(nn.Module):
         self.with_relu = with_relu
         
     def forward(self, x, adj,SC,K):
-        x_dec,gamma_x,errIHT_x = self.dl1(x,SC,K)
-        adj_dec, gamma_a,errIHT_a = self.dl2(adj,SC,K)
+        if self.divide:
+            adj_dec=torch.zeros(adj.size())
+            x_dec=torch.zeros(x.size())
+            for i in range(self.nclass):
+                adj_dec[self.idx[self.labels==i]],gamma_a,errIHT_a = self.dl_list_adj[i](adj[self.idx[self.labels==i]],SC,K)
+                x_dec[self.idx[self.labels==i]],gamma_x, errIHT_x = self.dl_list_feat[i](x[self.idx[self.labels==i]],SC,K)
+        else:
+            x_dec,gamma_x,errIHT_x = self.dl1(x,SC,K)
+            adj_dec, gamma_a,errIHT_a = self.dl2(adj,SC,K)
         if self.with_relu:
             x = F.relu(self.gc1(x_dec, adj_dec))
         else:
