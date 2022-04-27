@@ -191,6 +191,7 @@ class GCN(nn.Module):
 
         super(GCN, self).__init__()
         self.dl1 = DictLearn(nnodes, int(nfeat/2))
+        self.dl2 = DictLearn(nnodes,int((nnodes*3)/4))
         self.gc1 = GraphConvolution(nfeat, nhid, with_bias=with_bias)
         self.gc2 = GraphConvolution(nhid, nclass, with_bias=with_bias)
         self.dropout = dropout
@@ -202,21 +203,22 @@ class GCN(nn.Module):
         self.with_relu = with_relu
         
     def forward(self, x, adj,SC,K):
-        x_dec,gamma,errIHT = self.dl1(x,SC,K)
+        x_dec,gamma_x,errIHT_x = self.dl1(x,SC,K)
+        adj_dec, gamma_a,errIHT_a = self.dl2(adj,SC,K)
         if self.with_relu:
-            x = F.relu(self.gc1(x_dec, adj))
+            x = F.relu(self.gc1(x_dec, adj_dec))
         else:
-            x = self.gc1(x_dec, adj)
+            x = self.gc1(x_dec, adj_dec)
 
         x = F.dropout(x, self.dropout, training=self.training)
-        x = self.gc2(x, adj)
-        return F.log_softmax(x, dim=1),x_dec,gamma,errIHT
+        x = self.gc2(x, adj_dec)
+        return F.log_softmax(x, dim=1),x_dec,gamma_x,errIHT_x,adj_dec,gamma_a,errIHT_a
 
     def initialize(self):
         self.gc1.reset_parameters()
         self.gc2.reset_parameters()
 
-    def fit(self, features, adj, labels, SC, K, idx_train, idx_val=None, train_iters=20, initialize=False, normalize=True):
+    def fit(self, features, adj, labels, SC, K, idx_train, idx_val=None, train_iters=5, initialize=False, normalize=True):
         if initialize:
             self.initialize()
 
@@ -247,23 +249,26 @@ class GCN(nn.Module):
         for i in range(train_iters):
             self.train()
             optimizer.zero_grad()
-            output,x_dec,gamma,errIHT = self.forward(self.features, self.adj_norm,SC,K)
+            output,x_dec,gamma_x,errIHT_x,adj_dec,gamma_a,errIHT_a = self.forward(self.features, self.adj_norm,SC,K)
             loss_train = F.nll_loss(output[idx_train], labels[idx_train])
-            loss_sparse = F.mse_loss(x_dec,self.features)
-            loss_total = loss_train+loss_sparse
+            loss_sparse_x = F.mse_loss(x_dec,self.features)
+            loss_sparse_a = F.mse_loss(adj_dec,self.adj_norm)
+
+            loss_total = loss_train+loss_sparse_x+loss_sparse_a
             print(loss_total)
             loss_total.backward()
             optimizer.step()
 
             self.eval()
-            output,x_dec,gamma,errIHT = self.forward(self.features, self.adj_norm,SC,K)
+            output,x_dec,gamma_x,errIHT_x,adj_dec,gamma_a,errIHT_a = self.forward(self.features, self.adj_norm,SC,K)
             loss_v1 = F.nll_loss(output[idx_val], labels[idx_val])
-            loss_sparse = F.mse_loss(x_dec,self.features)
-            loss_val = loss_v1+loss_sparse
+            loss_sparse_x = F.mse_loss(x_dec,self.features)
+            loss_sparse_a = F.mse_loss(adj_dec,self.adj_norm)
+            loss_val = loss_v1+loss_sparse_x+loss_sparse_a
 
             acc_val = utils.accuracy(output[idx_val], labels[idx_val])
 
-            
+
             if best_loss_val > loss_val:
                 best_loss_val = loss_val
                 self.output = output
@@ -280,9 +285,13 @@ class GCN(nn.Module):
 
     def test(self, idx_test,SC,K):
         self.eval()
-        output,x_dec,gamma,errIHT = self.predict(SC,K)
+        output,x_dec,gamma_x,errIHT_x,adj_dec,gamma_a,errIHT_a = self.predict(SC,K)
 
-        loss_test = F.nll_loss(output[idx_test], self.labels[idx_test])
+        loss_test1 = F.nll_loss(output[idx_test], self.labels[idx_test])
+        loss_test2 = F.mse_loss(x_dec,self.features)
+        loss_test3 = F.mse_loss(adj_dec,self.adj_norm)
+        loss_test = loss_test1+loss_test2+loss_test3
+
         acc_test = utils.accuracy(output[idx_test], self.labels[idx_test])
         print("Test set results:",
               "loss= {:.4f}".format(loss_test.item()),
