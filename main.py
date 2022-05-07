@@ -27,7 +27,6 @@ def get_train_val_test_gcn(labels, seed=None):
 datasetName = "Cora" # "KarateClub", "CiteSeer", "Cora", Essentially any dataset from - https://pytorch-geometric.readthedocs.io/en/latest/modules/datasets.html#
 adj, features, labels = get_dataset(datasetName)
 
-
 adj = torch.ceil(adj).float()
 features = torch.ceil(features).float()
 
